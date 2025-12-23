@@ -24,7 +24,7 @@ async def scrape_products(category_url: str, category_name: str, max_clicks: int
         max_clicks: Maximum number of "View More" clicks (safety limit)
         
     Returns:
-        List of dicts with 'name', 'url', and 'category' keys
+        List of dicts with 'name', 'url', 'category', and 'price' keys
     """
     products = []
     
@@ -92,45 +92,59 @@ async def _count_products(page) -> int:
 
 def _extract_products_from_html(html: str, base_url: str, category_name: str) -> list[dict]:
     """
-    Extract product names and URLs from HTML content.
+    Extract product names, URLs, and prices from HTML content.
     """
     products = []
     seen_urls = set()
     
     soup = BeautifulSoup(html, 'lxml')
     
-    # Find all product links (pattern: /details/product-slug/product-id/)
-    for link in soup.find_all('a', href=True):
+    # Find all product info containers (they contain both link and price)
+    for container in soup.find_all('div', class_='sp-pr-info'):
+        # Find the product link within this container
+        link = container.find('a', href=True)
+        if not link:
+            continue
+            
         href = link.get('href', '')
         
-        if '/details/' in href:
-            full_url = urljoin(base_url, href)
+        if '/details/' not in href:
+            continue
             
-            # Skip duplicates
-            if full_url in seen_urls:
-                continue
-            seen_urls.add(full_url)
-            
-            # Try to get product name from h5 tag inside the link
-            name_tag = link.find('h5')
-            if name_tag:
-                name = name_tag.get_text(strip=True)
-            else:
-                # Fallback: get any text from the link
-                name = link.get_text(strip=True)
-            
-            # If still no name, extract from URL
-            if not name:
-                match = re.search(r'/details/([^/]+)/', href)
-                if match:
-                    name = match.group(1).replace('-', ' ')
-            
-            if name:
-                products.append({
-                    'name': name,
-                    'url': full_url,
-                    'category': category_name
-                })
+        full_url = urljoin(base_url, href)
+        
+        # Skip duplicates
+        if full_url in seen_urls:
+            continue
+        seen_urls.add(full_url)
+        
+        # Try to get product name from h5 tag inside the link
+        name_tag = link.find('h5')
+        if name_tag:
+            name = name_tag.get_text(strip=True)
+        else:
+            # Fallback: get any text from the link
+            name = link.get_text(strip=True)
+        
+        # If still no name, extract from URL
+        if not name:
+            match = re.search(r'/details/([^/]+)/', href)
+            if match:
+                name = match.group(1).replace('-', ' ')
+        
+        # Extract price from strong.price element in the same container
+        price = ''
+        price_tag = container.find('strong', class_='price')
+        if price_tag:
+            price = price_tag.get_text(strip=True)
+        
+        if name:
+            products.append({
+                'name': name,
+                'url': full_url,
+                'category': category_name,
+                'price': price
+            })
     
     return products
 

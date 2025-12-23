@@ -93,7 +93,7 @@ async def main(base_url: str, category_filter: str = None):
 def save_to_csv(products: list[dict], filepath: Path):
     """Save products to a CSV file."""
     with open(filepath, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=['name', 'url', 'category'])
+        writer = csv.DictWriter(f, fieldnames=['name', 'url', 'category', 'price'])
         writer.writeheader()
         writer.writerows(products)
 
